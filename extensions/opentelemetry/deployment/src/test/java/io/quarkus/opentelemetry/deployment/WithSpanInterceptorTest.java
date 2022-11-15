@@ -7,9 +7,9 @@ import static io.quarkus.opentelemetry.deployment.common.TestSpanExporter.getSpa
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.Optional;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
@@ -19,6 +19,8 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
+import io.opentelemetry.sdk.trace.data.EventData;
+import io.opentelemetry.sdk.trace.internal.data.ExceptionEventData;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.AfterEach;
@@ -109,15 +111,27 @@ public class WithSpanInterceptorTest {
 
     @Test
     void spanWithException() {
-        assertThrows(Throwable.class, () -> spanBean.spanWithException());
-        List<SpanData> spans = spanExporter.getFinishedSpanItems(1);
+        try {
+            spanBean.spanWithException();
+        } catch (RuntimeException e) {
+            assertEquals("outermost exception", e.getMessage());
+        }
+        List<SpanData> spans = spanExporter.getFinishedSpanItems(2);
 
-        SpanData span = spans.get(0);
-        assertEquals("SpanBean.spanWithException", span.getName());
-        assertTrue(
-            span.getEvents().stream().anyMatch(e -> e.getName().equals("exception")),
-            "Created span should contain an exception event"
-        );
+        SpanData outermostSpan = spans.get(1);
+        assertEquals("SpanBean.spanWithException", outermostSpan.getName());
+        assertContainsEventExceptionWithMessage(outermostSpan, "outermost exception");
+
+        SpanData innermostSpan = spans.get(0);
+        assertEquals("SpanBean.spanWithNestedException", innermostSpan.getName());
+        assertContainsEventExceptionWithMessage(innermostSpan, "innermost exception");
+    }
+
+    private static void assertContainsEventExceptionWithMessage(SpanData outermostSpan, String exceptionMessage) {
+        Optional<EventData> outermostEventData =
+            outermostSpan.getEvents().stream().filter(e -> e.getName().equals("exception")).findFirst();
+        assertTrue(outermostEventData.isPresent(), "Outermost span should contain an exception event");
+        assertEquals(exceptionMessage, ((ExceptionEventData) outermostEventData.get()).getException().getMessage());
     }
 
     @ApplicationScoped
@@ -144,7 +158,17 @@ public class WithSpanInterceptorTest {
 
         @WithSpan
         public void spanWithException() {
-            throw new RuntimeException();
+            try {
+                spanWithNestedException();
+            } catch (Throwable t) {
+                throw new RuntimeException("outermost exception");
+            }
+
+        }
+
+        @WithSpan
+        public void spanWithNestedException() {
+            throw new RuntimeException("innermost exception");
         }
 
         @Inject
