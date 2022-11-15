@@ -19,8 +19,6 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
-import io.opentelemetry.sdk.trace.data.EventData;
-import io.opentelemetry.sdk.trace.internal.data.ExceptionEventData;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.AfterEach;
@@ -30,7 +28,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.internal.data.ExceptionEventData;
 import io.quarkus.opentelemetry.deployment.common.TestSpanExporter;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.test.QuarkusUnitTest;
@@ -128,8 +128,8 @@ public class WithSpanInterceptorTest {
     }
 
     private static void assertContainsEventExceptionWithMessage(SpanData outermostSpan, String exceptionMessage) {
-        Optional<EventData> outermostEventData =
-            outermostSpan.getEvents().stream().filter(e -> e.getName().equals("exception")).findFirst();
+        Optional<EventData> outermostEventData = outermostSpan.getEvents().stream().filter(e -> e.getName().equals("exception"))
+                .findFirst();
         assertTrue(outermostEventData.isPresent(), "Outermost span should contain an exception event");
         assertEquals(exceptionMessage, ((ExceptionEventData) outermostEventData.get()).getException().getMessage());
     }
