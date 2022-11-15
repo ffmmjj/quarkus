@@ -67,7 +67,8 @@ public class WithSpanInterceptor {
             return invocationContext.proceed();
         } catch (Throwable t) {
             Span.current()
-                    .recordException(t);
+                    .recordException(t)
+                    .setAttribute("error", true);
             throw t;
         } finally {
             if (shouldStart) {

@@ -127,11 +127,15 @@ public class WithSpanInterceptorTest {
         assertContainsEventExceptionWithMessage(innermostSpan, "innermost exception");
     }
 
-    private static void assertContainsEventExceptionWithMessage(SpanData outermostSpan, String exceptionMessage) {
-        Optional<EventData> outermostEventData = outermostSpan.getEvents().stream().filter(e -> e.getName().equals("exception"))
+    private static void assertContainsEventExceptionWithMessage(SpanData span, String exceptionMessage) {
+        // Use assertEquals instead of assertTrue here to cover for null values
+        assertEquals(true, span.getAttributes().get(AttributeKey.booleanKey("error")));
+
+        Optional<EventData> eventData = span.getEvents().stream().filter(e -> e.getName().equals("exception"))
                 .findFirst();
-        assertTrue(outermostEventData.isPresent(), "Outermost span should contain an exception event");
-        assertEquals(exceptionMessage, ((ExceptionEventData) outermostEventData.get()).getException().getMessage());
+
+        assertTrue(eventData.isPresent(), "Outermost span should contain an exception event");
+        assertEquals(exceptionMessage, ((ExceptionEventData) eventData.get()).getException().getMessage());
     }
 
     @ApplicationScoped
