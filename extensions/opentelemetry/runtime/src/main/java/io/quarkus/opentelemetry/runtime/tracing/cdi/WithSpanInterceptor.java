@@ -12,6 +12,7 @@ import javax.interceptor.AroundInvoke;
 import javax.interceptor.Interceptor;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
@@ -63,14 +64,15 @@ public class WithSpanInterceptor {
         }
 
         try {
-            Object result = invocationContext.proceed();
-
+            return invocationContext.proceed();
+        } catch (Throwable t) {
+            Span.current()
+                    .recordException(t);
+            throw t;
+        } finally {
             if (shouldStart) {
                 instrumenter.end(spanContext, methodRequest, null, null);
             }
-
-            return result;
-        } finally {
             if (scope != null) {
                 scope.close();
             }

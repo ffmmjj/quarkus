@@ -6,6 +6,8 @@ import static io.opentelemetry.api.trace.SpanKind.SERVER;
 import static io.quarkus.opentelemetry.deployment.common.TestSpanExporter.getSpanByKindAndParentId;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
@@ -105,6 +107,19 @@ public class WithSpanInterceptorTest {
         final SpanData server = getSpanByKindAndParentId(spans, SERVER, client.getSpanId());
     }
 
+    @Test
+    void spanWithException() {
+        assertThrows(Throwable.class, () -> spanBean.spanWithException());
+        List<SpanData> spans = spanExporter.getFinishedSpanItems(1);
+
+        SpanData span = spans.get(0);
+        assertEquals("SpanBean.spanWithException", span.getName());
+        assertTrue(
+            span.getEvents().stream().anyMatch(e -> e.getName().equals("exception")),
+            "Created span should contain an exception event"
+        );
+    }
+
     @ApplicationScoped
     public static class SpanBean {
         @WithSpan
@@ -125,6 +140,11 @@ public class WithSpanInterceptorTest {
         @WithSpan
         public void spanArgs(@SpanAttribute(value = "arg") String arg) {
 
+        }
+
+        @WithSpan
+        public void spanWithException() {
+            throw new RuntimeException();
         }
 
         @Inject
